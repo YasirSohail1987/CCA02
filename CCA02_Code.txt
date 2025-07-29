@@ -20,7 +20,7 @@ fn.EI =  function(data.training, data.virtual){
 #virtual data
 data.virtual<- read.csv("data.casted_CCA02.csv")
 # Training data
-data.training <-read.xlsx("data.training_CCA02.csv")
+data.training <-read.xlsx("data.training_CCA02.xlsx")
 
 # Random forest
 set.seed(11234)
