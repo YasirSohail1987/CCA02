@@ -1,0 +1,60 @@
+install.packages("e1071")
+library(e1071) 
+install.packages("randomForest")
+library(randomForest)
+fn.EI =  function(data.training, data.virtual){
+  ego = (data.virtual[,"mean"] - max(data.training[,"ys_Mpa"]))/data.virtual[,"sd"]
+  z = ego
+  ei.ego = data.virtual[,"sd"]*z*pnorm(z) + data.virtual[,"sd"]*dnorm(z) 
+  kg = -1*abs((data.virtual[,"mean"] - max(max(data.virtual[,"mean"],max(data.training[,"ys_Mpa"]))))/data.virtual[,"sd"])
+  z = kg
+  ei.kg = data.virtual[,"sd"]*z*pnorm(z) + data.virtual[,"sd"]*dnorm(z)  
+  
+  max.P = pnorm(ego, mean = data.virtual[,"mean"], sd = data.virtual[,"sd"])
+  
+  ei = cbind(data.virtual, ei.ego, ei.kg, max.P)
+  ei = data.frame(ei)
+  return (ei)
+}
+
+#virtual data
+data.virtual<- read.csv("data.casted_CCA02.csv")
+# Training data
+data.training <-read.xlsx("data.training_CCA02.csv")
+
+# Random forest
+set.seed(11234)
+rf<-randomForest(L12_frac_perct ~ Al+Co+Cr+Fe+Ni+Ta+homogenize_K+G+eeta+aging_K+ag_time_h+e.a+delta_r+SFE_P+CR_01+delta_h+delta_s+d_r+recrystalize_K+recrystalize_t_min,
+                 data=data.training)
+plot(data.training$L12_frac_perct, predict(rf,data.training))
+rmserf<-sqrt(sum((data.training$L12_frac_perct-predict(rf,data.training))^2)/length(data.training$L12_frac_perct))
+#abline(0,1)
+
+#Prediction
+predict.data<-predict(rf,data.virtual)
+
+
+R=1000
+i=1
+repeat{
+  #    boot.sample = c(sample(n, 5, replace = FALSE), sample(n, n-5, replace = TRUE))
+  set.seed(i)
+  boot.sample = sample(115, 115, replace = TRUE)
+  t.data.training = data.training[boot.sample,]
+  rf<-randomForest(L12_frac_perct ~ Al+Co+Cr+Fe+Ni+Ta+homogenize_K+G+eeta+aging_K+ag_time_h+e.a+delta_r+SFE_P+CR_01+delta_h+delta_s+d_r+recrystalize_K+recrystalize_t_min,
+                   data=t.data.training )
+  predict.data1 = predict(rf,data.virtual)
+  predict.data = cbind(predict.data, predict.data1)
+  i=i+1
+  if(i>R) break ()}
+#mean
+mean <-apply(as.matrix(predict.data),1,mean)
+data.virtual$mean <- mean
+head(mean)
+#sd
+sd <-apply(as.matrix(predict.data),1,sd)
+data.virtual$sd <- sd
+head(sd)
+
+output2 <- fn.EI(data.training, data.virtual)
+write.csv(output2, file="Tdata.casted_CCA02_pred_L12.csv")
